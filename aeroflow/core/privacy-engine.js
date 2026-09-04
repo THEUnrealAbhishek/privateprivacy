@@ -9,66 +9,125 @@ const PrivacyEngine = {
         return this.placeholders[type] || "sensitive_field";
     },
     protectField(input, type) {
-        if (!input || input.dataset.aeroflowProtected === "true") {
+        if (!input) {
             return;
         }
-        const placeholder = this.getPlaceholder(type);
+        if (input.dataset.aeroflowProtected === "true") {
+            return;
+        }
         input.dataset.aeroflowProtected = "true";
         input.dataset.aeroflowType = type;
-        input.dataset.aeroflowOriginalPlaceholder =
-            input.placeholder || "";
-        input.placeholder = placeholder;
-        input.style.border = "2px solid #ff5b5b";
-        if (
-            type === "PASSWORD" ||
-            type === "EMAIL" ||
-            type === "USERNAME" ||
-            type === "PHONE"
-        ) {
-            input.setAttribute(
-                "autocomplete",
-                "off"
-            );
-        }
+        input.placeholder =
+            this.getPlaceholder(type);
+        input.style.border =
+            "2px solid #ff5b5b";
         console.log(
-            `AeroFlow is Protected ${type} field`
+            `[AeroFlow] 🔐 Protected ${type} field`
         );
     },
     protectPage() {
-        const fields = PIIDetector.scanPage();
+        const fields =
+            PIIDetector.scanPage();
         fields.forEach(field => {
             this.protectField(
                 field.element,
                 field.type
             );
+
         });
-        console.log(
-            `[AeroFlow] ${fields.length} sensitive field(s) protected`
-        );
         return fields;
     },
-    observePage() {
-        const observer = new MutationObserver(() => {
-            const fields = PIIDetector.scanPage();
-            fields.forEach(field => {
-                this.protectField(
-                    field.element,
-                    field.type
-                );
-            });
+    protectForms() {
+        const forms =
+            document.querySelectorAll("form");
+        forms.forEach(form => {
+            if (
+                form.dataset.aeroflowProtected ===
+                "true"
+            ) {
+                return;
+            }
+            form.dataset.aeroflowProtected =
+                "true";
+            console.log(
+                "[AeroFlow] 🛡️ Protected form"
+            );
         });
-        observer.observe(document.documentElement, {
-            childList: true,
-            subtree: true
+    },
+    handleSubmit(event) {
+        const status =
+            document.documentElement
+                .dataset.aeroflowStatus;
+        if (status !== "untrusted") {
+            return;
+        }
+        const form = event.target;
+        if (!form || form.tagName !== "FORM") {
+            return;
+        }
+        console.log(
+            "[AeroFlow] 🚨 Intercepting untrusted form"
+        );
+        const fields =
+            form.querySelectorAll(
+                "input, textarea"
+            );
+        let protectedCount = 0;
+        fields.forEach(input => {
+            const protectedField =
+                input.dataset.aeroflowProtected;
+
+            const type =
+                input.dataset.aeroflowType;
+
+            if (
+                protectedField === "true" &&
+                type
+            ) {
+                const safeValue =
+                    this.getPlaceholder(type);
+                console.log(
+                    `[AeroFlow] 🔒 Replacing ${type}`
+                );
+                input.value = safeValue;
+
+                protectedCount++;
+            }
         });
         console.log(
-            "AeroFlow is Watching for new sensitive fields"
+            `[AeroFlow] ✅ ${protectedCount} sensitive value(s) sanitized`
+        );
+    },
+    observePage() {
+        const observer =
+            new MutationObserver(() => {
+                this.protectPage();
+                this.protectForms();
+            });
+        observer.observe(
+            document.documentElement,
+            {
+                childList: true,
+                subtree: true
+            }
+        );
+        console.log(
+            "[AeroFlow]  Watching for new forms and fields"
         );
         return observer;
     },
     start() {
-        const fields = this.protectPage();
+        this.protectPage();
+        this.protectForms();
+        document.addEventListener(
+            "submit",
+            this.handleSubmit.bind(this),
+            true
+        );
         this.observePage();
-        return fields;
+        console.log(
+            "[AeroFlow] 🔐 Privacy Engine started"
+        );
+        return PIIDetector.scanPage();
     }
 };
