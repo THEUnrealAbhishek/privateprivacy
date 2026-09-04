@@ -1,23 +1,39 @@
 {
     "manifest_version": 3,
     "name": "AeroFlow",
-    "description": "Privacy-first AI browser agent. Detects and redacts PII locally before any network transmission.",
+    "description": "Privacy-first browser extension that protects sensitive information on untrusted websites.",
     "version": "1.0.0",
     "icons": {
         "32": "icon32.png"
     },
-    "background": {
-        "service_worker": "service-worker.js",
-        "type":"module"
-    },
-    "action":{
-        "default_popup":"index.html"
+    "action": {
+        "default_popup": "index.html"
     },
     "permissions": [
-        "scripting"
+        "storage",
+        "activeTab"
     ],
-    "host_permissions":[
+    "host_permissions": [
         "http://*/*",
         "https://*/*"
-    ]
+    ],
+    "content_scripts": [
+        {
+            "matches": [
+                "http://*/*",
+                "https://*/*"
+            ],
+            "js": [
+                "core/website-detector.js",
+                "core/trust-engine.js",
+                "core/pii-detector.js",
+                "core/privacy-engine.js",
+                "content.js"
+            ],
+            "run_at": "document_start"
+        }
+    ],
+    "background": {
+        "service_worker": "service-worker.js"
+    }
 }
